@@ -1,0 +1,20 @@
+{
+  "plugins": [
+    {
+      "name": "v10-bridge",
+      "displayName": "V10 Bridge",
+      "version": "0.1.0",
+      "description": "Claude Code lifecycle bridge for V10 Mac terminal app. Sends presence events to V10 via Unix domain socket.",
+      "author": {
+        "name": "vibze"
+      },
+      "homepage": "https://github.com/vibze/v10-claude-plugin",
+      "repository": "https://github.com/vibze/v10-claude-plugin",
+      "license": "MIT",
+      "source": {
+        "type": "directory",
+        "path": "./"
+      }
+    }
+  ]
+}

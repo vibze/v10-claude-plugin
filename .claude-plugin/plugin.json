@@ -1,0 +1,74 @@
+{
+  "name": "v10-bridge",
+  "displayName": "V10 Bridge",
+  "version": "0.1.0",
+  "description": "Claude Code lifecycle bridge for V10 Mac terminal app. Sends presence events to V10 via Unix domain socket.",
+  "author": {
+    "name": "vibze"
+  },
+  "homepage": "https://github.com/vibze/v10-claude-plugin",
+  "repository": "https://github.com/vibze/v10-claude-plugin",
+  "license": "MIT",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-submit.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-end.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

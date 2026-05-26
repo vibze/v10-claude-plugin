@@ -1,8 +1,8 @@
 {
   "name": "v10-bridge",
   "displayName": "V10 Bridge",
-  "version": "0.1.0",
-  "description": "Claude Code lifecycle bridge for V10 Mac terminal app. Sends presence events to V10 via Unix domain socket.",
+  "version": "0.2.0",
+  "description": "Claude Code lifecycle bridge for V10 Mac terminal app. Sends presence events to V10 via Unix domain socket, and exposes a per-tab embedded browser as an MCP server (navigate / eval_js / screenshot / snapshot).",
   "author": {
     "name": "vibze"
   },
@@ -74,5 +74,6 @@
         ]
       }
     ]
-  }
+  },
+  "mcpServers": "./.mcp.json"
 }

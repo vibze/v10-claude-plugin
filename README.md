@@ -84,6 +84,26 @@ or SSH).
 - **No-op off-V10**: with no tty (headless/piped claude) the hooks do
   nothing; in a non-V10 terminal the OSC is an ignored escape.
 
+## Troubleshooting
+
+If activity isn't showing up in V10 (especially over SSH):
+
+1. **Did the hook fire + reach a tty?** On the box where `claude` runs:
+   ```bash
+   export V10_BRIDGE_DEBUG=1   # then run claude in the V10 tab
+   tail -f ~/.v10-bridge.log   # (or $V10_BRIDGE_DEBUG_FILE)
+   ```
+   Each event logs `HH:MM:SS <channel>/<event> tty=<y|n> tmux=<y|n>`.
+   `tty=n` means no controlling terminal to emit on; `tmux=y` means the
+   remote tmux needs `set -g allow-passthrough on`. (`claude --debug` also
+   shows hook execution.)
+2. **Did the frame reach the Mac?** In Console / `log`:
+   ```bash
+   log stream --predicate 'subsystem=="com.viktorten.v10" AND category=="Bridge"' --level debug
+   ```
+   `rx`/`apply` lines = working; `decode failed` = it arrived mangled
+   (suspect tmux passthrough); nothing = it never arrived.
+
 ## Implementation notes
 
 - `claude_pid` is the hook process PID (reasonably close to Claude's PID for tracking).

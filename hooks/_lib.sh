@@ -13,6 +13,18 @@ send_frame() {
   local event="$2"
   local data="$3"
 
+  # Opt-in troubleshooting trace (set V10_BRIDGE_DEBUG=1). Logged BEFORE
+  # the tty check so you can tell a hook that fired-but-had-no-tty from one
+  # that never ran. Captures whether a tty is reachable and tmux state —
+  # the two things that decide if the OSC can get back to the Mac.
+  if [[ -n "$V10_BRIDGE_DEBUG" ]]; then
+    printf '%s %s/%s tty=%s tmux=%s\n' \
+      "$(date +%T)" "$channel" "$event" \
+      "$([[ -w /dev/tty ]] && echo y || echo n)" \
+      "$([[ -n "$TMUX" ]] && echo y || echo n)" \
+      >> "${V10_BRIDGE_DEBUG_FILE:-$HOME/.v10-bridge.log}" 2>/dev/null || true
+  fi
+
   # Need a controlling terminal to write the escape to. No-op in headless
   # / piped claude (no tty == not inside a V10 terminal anyway).
   [[ -w /dev/tty ]] || return 0

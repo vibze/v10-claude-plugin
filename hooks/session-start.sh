@@ -37,7 +37,7 @@ if [[ -n "$V10_BROWSER_SOCK" ]]; then
   jq -nc '{
     hookSpecificOutput: {
       hookEventName: "SessionStart",
-      additionalContext: "Inside a V10 tab. For testing/inspecting/screenshotting web UIs and interacting with rendered pages, use the `v10-browser` MCP server (navigate / screenshot / snapshot / eval_js). It runs a sandboxed per-tab WKWebView the user can see. Prefer it over browsermcp/playwright/puppeteer. WebFetch is still fine for plain text-content fetches that don't need rendering."
+      additionalContext: "Inside a V10 tab. For testing/inspecting/screenshotting web UIs and interacting with rendered pages, use the `v10-browser` MCP server (navigate / screenshot / snapshot / eval_js). It runs a sandboxed per-tab WKWebView the user can see. Prefer it over browsermcp/playwright/puppeteer. WebFetch is still fine for plain text-content fetches that do not need rendering."
     }
   }'
 fi

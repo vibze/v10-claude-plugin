@@ -13,23 +13,25 @@ Replaces process inspection heuristics with explicit event signaling. Fires on s
 - `Stop` — Claude finishes responding
 - `SessionEnd` — Session terminates
 
-Each event sends one JSON frame over a UDS to V10, allowing the app to track Claude Code presence with high fidelity.
+Each event emits one JSON frame **in-band** as a private OSC escape on the
+terminal, allowing V10 to track Claude Code presence with high fidelity —
+including over SSH, where the escape rides the PTY for free.
 
 ## Transport contract
 
-**Socket location**: `$V10_SOCKET` (set by V10; read from environment)  
-**Frame format**: One JSON line per event, terminated with `\n`  
-**Channel**: `presence` (only channel in v0.1.0; extensible for future channels)
+**Mechanism**: a private **OSC 5113** escape written to the controlling tty
+(`printf '\033]5113;<json>\007' > /dev/tty`). V10 catches it from the PTY
+stream and attributes the frame to the tab whose terminal received it.
 
-## Environment variables
+**Why OSC, not a socket**: it needs no `V10_*` env vars, no `ssh -R` socket
+forwarding, and no `nc`/`socat` on the host — so it works identically
+locally and on a remote Claude install. (Pre-0.3.0 used a Unix-domain
+socket + `$V10_SOCKET`/`$V10_SESSION_ID`; those are gone.)
 
-The plugin requires two environment variables set by V10:
+**tmux**: inside tmux the escape is wrapped in the passthrough DCS, so the
+remote tmux must have `set -g allow-passthrough on`.
 
-- `$V10_SOCKET` — Path to Unix domain socket (e.g., `$TMPDIR/v10-bridge-$UID.sock`)
-- `$V10_SESSION_ID` — UUID identifying this Claude Code session
-- `$V10_APP_PID` — PID of the V10 app process (optional; used in frame envelope)
-
-If `$V10_SOCKET` or `$V10_SESSION_ID` are unset, the plugin silently no-ops. If `$V10_APP_PID` is unset, it defaults to 0 in frames.
+**Requirements**: a controlling tty (`/dev/tty`) and `jq`. No tty → no-op.
 
 ## Frame schema
 
@@ -37,9 +39,7 @@ If `$V10_SOCKET` or `$V10_SESSION_ID` are unset, the plugin silently no-ops. If 
 {
   "channel": "presence",
   "event": "SessionStart",
-  "v10_session_id": "<UUID from $V10_SESSION_ID>",
-  "v10_app_pid": <int from $V10_APP_PID or 0>,
-  "claude_pid": <int, PID of hook process>,
+  "claude_pid": <int, owning claude/node PID — local liveness only>,
   "ts": <float, unix seconds with ms precision>,
   "data": {
     "model": "claude-sonnet-4-6",
@@ -54,11 +54,14 @@ Event-specific `data` fields:
 | Event              | data fields            | Examples                       |
 |--------------------|------------------------|--------------------------------|
 | `SessionStart`     | model, source, cwd     | model, source (startup/resume) |
-| `UserPromptSubmit` | prompt                 | User-supplied prompt text      |
+| `UserPromptSubmit` | (empty)                | heartbeat only                 |
 | `PreToolUse`       | tool_name              | Bash, Write, Edit, etc.        |
 | `PostToolUse`      | tool_name              | Bash, Write, Edit, etc.        |
 | `Stop`             | (empty)                | —                              |
 | `SessionEnd`       | (empty)                | —                              |
+
+The `usage` channel (`Update` event) additionally carries `tokens`,
+`cost_usd`, and `turns`.
 
 ## Installation
 
@@ -70,20 +73,16 @@ claude plugin install v10-bridge@vibze/v10-claude-plugin --scope user
 claude plugin install v10-bridge@vibze/v10-claude-plugin --scope project
 ```
 
-Then launch Claude Code with V10 environment variables:
-
-```bash
-export V10_SOCKET="$TMPDIR/v10-bridge-$UID.sock"
-export V10_SESSION_ID="<uuid>"
-export V10_APP_PID=12345
-claude
-```
+No environment setup is needed — just run `claude` inside a V10 tab (local
+or SSH).
 
 ## Behavior
 
-- **Non-blocking**: Hooks use 1-second timeout on socket writes; dead sockets never hang Claude.
-- **Silent errors**: All hook exit codes are 0, even on socket write failures. Errors logged to stderr only if needed.
-- **Optional**: If `$V10_SOCKET` or `$V10_SESSION_ID` unset, hooks are a no-op with zero overhead.
+- **Non-blocking**: frames are a single `printf` to `/dev/tty`; failures are
+  swallowed so a hook never fails Claude.
+- **Silent**: all hook exit codes are 0.
+- **No-op off-V10**: with no tty (headless/piped claude) the hooks do
+  nothing; in a non-V10 terminal the OSC is an ignored escape.
 
 ## Implementation notes
 

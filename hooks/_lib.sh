@@ -1,18 +1,22 @@
 #!/bin/bash
 # Common hook library for V10 bridge plugin
 
-# Send frame to V10 via Unix domain socket.
+# Send a frame to V10 *in-band* as a private OSC 5113 escape written to the
+# controlling tty. The bytes ride the PTY — locally or over ssh/tmux — and
+# V10 attributes the frame to the tab whose terminal received it, so no
+# V10_* env vars or socket forwarding are needed. This is what makes the
+# bridge work on remote Claude installs.
 # Usage: send_frame <channel> <event> <json_data>
-# Returns 0 on success or socket errors (hook must not fail).
+# Always returns 0 (a hook must never fail Claude).
 send_frame() {
   local channel="$1"
   local event="$2"
   local data="$3"
-  
-  # Socket is optional; silently no-op if unset or if V10_SESSION_ID is unset.
-  [[ -z "$V10_SOCKET" ]] && return 0
-  [[ -z "$V10_SESSION_ID" ]] && return 0
-  
+
+  # Need a controlling terminal to write the escape to. No-op in headless
+  # / piped claude (no tty == not inside a V10 terminal anyway).
+  [[ -w /dev/tty ]] || return 0
+
   # Walk up the process tree from the hook to find the long-lived Claude
   # process. The hook itself ($$) dies on exit; $PPID is typically the
   # bash that ran the hook command — also short-lived. The Claude process
@@ -34,28 +38,34 @@ send_frame() {
     echo "$PPID"
   )
   local ts=$(date +%s%N | sed 's/.\{6\}$//')  # Unix float (seconds with ms precision).
-  
-  # Merge data into the frame.
-  local frame=$(jq -n \
+
+  # Build the frame. No v10_session_id / v10_app_pid: V10 knows the session
+  # from the receiving terminal. claude_pid is for local liveness only.
+  local frame
+  frame=$(jq -nc \
     --arg channel "$channel" \
     --arg event "$event" \
-    --arg session_id "$V10_SESSION_ID" \
-    --argjson app_pid "${V10_APP_PID:-0}" \
     --argjson claude_pid "$claude_pid" \
     --arg ts "$ts" \
     --argjson data "$data" \
     '{
       channel: $channel,
       event: $event,
-      v10_session_id: $session_id,
-      v10_app_pid: $app_pid,
       claude_pid: $claude_pid,
       ts: ($ts | tonumber),
       data: $data
-    }')
-  
-  # Send one frame, then close. Short timeout (1s) so dead sockets don't hang Claude.
-  echo "$frame" | nc -U -w 1 "$V10_SOCKET" >/dev/null 2>&1 || true
-  
+    }') || return 0
+
+  # Emit as OSC 5113 ; <json> BEL. Inside tmux, wrap in the passthrough
+  # DCS (doubling ESC) so the sequence reaches the outer terminal —
+  # requires `set -g allow-passthrough on` on the remote tmux.
+  local esc=$'\033'
+  local osc="${esc}]5113;${frame}"$'\007'
+  if [[ -n "$TMUX" ]]; then
+    local doubled="${osc//$esc/$esc$esc}"
+    osc="${esc}Ptmux;${doubled}${esc}\\"
+  fi
+  printf '%s' "$osc" > /dev/tty 2>/dev/null || true
+
   return 0
 }

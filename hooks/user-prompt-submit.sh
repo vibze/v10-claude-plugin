@@ -5,18 +5,10 @@
 set -e
 source "$(dirname "$0")/_lib.sh"
 
-# Read hook payload from stdin.
-payload=$(cat)
+# Drain stdin (the hook payload) but don't forward the prompt text — it's
+# only a heartbeat to V10, and the prompt could be large for an in-band
+# OSC payload.
+cat >/dev/null
 
-# Extract event-specific fields.
-prompt=$(echo "$payload" | jq -r '.prompt // empty')
-
-# Build data object with user prompt.
-data=$(jq -n \
-  --arg prompt "$prompt" \
-  '{
-    prompt: ($prompt | select(. != ""))
-  }')
-
-# Send frame to V10.
-send_frame "presence" "UserPromptSubmit" "$data"
+# Send frame to V10 (empty data — this event is purely a liveness signal).
+send_frame "presence" "UserPromptSubmit" "{}"

@@ -10,7 +10,7 @@
     {
       "name": "v10-bridge",
       "source": "./",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "description": "Claude Code lifecycle bridge for V10 Mac terminal app. Sends presence events to V10 via Unix domain socket.",
       "author": {
         "name": "vibze"

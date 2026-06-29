@@ -1,6 +1,11 @@
 #!/bin/bash
 # Common hook library for V10 bridge plugin
 
+# Our own version, read once from the manifest beside the hooks dir. V10
+# uses it to nudge when the installed plugin is outdated (local or remote).
+# Empty if unreadable — then no version travels and V10 simply can't nudge.
+V10_PLUGIN_VERSION="${V10_PLUGIN_VERSION:-$(jq -r '.version // empty' "$(dirname "${BASH_SOURCE[0]}")/../.claude-plugin/plugin.json" 2>/dev/null)}"
+
 # Send a frame to V10 *in-band* as a private OSC 5113 escape written to the
 # controlling tty. The bytes ride the PTY — locally or over ssh/tmux — and
 # V10 attributes the frame to the tab whose terminal received it, so no
@@ -59,12 +64,14 @@ send_frame() {
     --arg event "$event" \
     --argjson claude_pid "$claude_pid" \
     --arg ts "$ts" \
+    --arg plugin_version "$V10_PLUGIN_VERSION" \
     --argjson data "$data" \
     '{
       channel: $channel,
       event: $event,
       claude_pid: $claude_pid,
       ts: ($ts | tonumber),
+      plugin_version: ($plugin_version | select(. != "")),
       data: $data
     }') || return 0
 
